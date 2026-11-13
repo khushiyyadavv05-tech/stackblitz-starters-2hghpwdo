@@ -1,0 +1,588 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AirCanvas AI | Virtual Drawing Studio</title>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0b0916;
+  color: white;
+  font-family: Arial, sans-serif;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  padding: 25px 10px;
+}
+
+header h1 {
+  font-size: clamp(28px, 5vw, 42px);
+  color: #ff79bd;
+  text-shadow: 0 0 20px #ff4fa3;
+}
+
+header p {
+  color: #aaa4c2;
+  margin-top: 10px;
+}
+
+.container {
+  max-width: 1250px;
+  margin: auto;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+button {
+  background: #211c35;
+  color: white;
+  border: 1px solid #55436e;
+  padding: 12px 17px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: .2s;
+}
+
+button:hover, button.active {
+  background: #a83d82;
+  border-color: #ff79bd;
+  box-shadow: 0 0 14px #a83d82;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.panel {
+  background: #171326;
+  border: 1px solid #493b60;
+  border-radius: 18px;
+  padding: 13px;
+  min-width: 0;
+}
+
+.panel h3 {
+  color: #ff9bce;
+  margin: 5px 0 12px;
+}
+
+.camera-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #080710;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+video, #tracking {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+#tracking {
+  pointer-events: none;
+}
+
+#cameraStatus {
+  text-align: center;
+  color: #ff9bce;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #100d1d;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
+  margin: 20px 0;
+  background: #171326;
+  border: 1px solid #493b60;
+  border-radius: 16px;
+}
+
+.settings label {
+  color: #ddd1ef;
+}
+
+input[type="range"] {
+  accent-color: #ff79bd;
+}
+
+input[type="color"] {
+  width: 42px;
+  height: 35px;
+  border: none;
+  background: transparent;
+}
+
+.instructions {
+  color: #aaa4c2;
+  text-align: center;
+  line-height: 1.9;
+  padding: 20px;
+}
+
+footer {
+  text-align: center;
+  color: #716984;
+  padding: 20px;
+}
+
+@media(max-width: 750px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  body {
+    padding: 10px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>✨ AirCanvas AI</h1>
+  <p>Move your fingers. Create magic.</p>
+</header>
+
+<div class="container">
+
+  <div class="toolbar">
+    <button class="active" data-mode="draw">✏️ Draw</button>
+    <button data-mode="heart">❤️ Heart</button>
+    <button data-mode="star">⭐ Star</button>
+    <button data-mode="circle">⭕ Circle</button>
+    <button data-mode="rainbow">🌈 Magic</button>
+    <button data-mode="erase">🧽 Eraser</button>
+    <button id="clear">🗑️ Clear</button>
+    <button id="save">💾 Save Art</button>
+  </div>
+
+  <div class="workspace">
+
+    <div class="panel">
+      <h3>📷 Live Hand Tracking</h3>
+      <div class="camera-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="tracking"></canvas>
+      </div>
+      <button id="start" style="width:100%;margin-top:12px">
+        Start Camera 📷
+      </button>
+      <p id="cameraStatus">Camera is not started</p>
+    </div>
+
+    <div class="panel">
+      <h3>🎨 Your Drawing Canvas</h3>
+      <div class="canvas-wrap">
+        <canvas id="canvas" width="800" height="600"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="settings">
+    <label>Brush Colour</label>
+    <input type="color" id="color" value="#ff4fa3">
+
+    <label>Brush Size</label>
+    <input type="range" id="size" min="2" max="35" value="7">
+
+    <span id="sizeValue">7 px</span>
+    <strong id="currentMode">Mode: Draw</strong>
+  </div>
+
+  <div class="instructions">
+    <h3>How to use AirCanvas?</h3>
+    ☝️ Index finger up = Draw<br>
+    🤏 Pinch thumb and index = Place selected shape<br>
+    ✋ Open palm = Pause drawing<br>
+    ✊ Closed fist = Clear canvas<br>
+    🌈 Magic mode = Rainbow trails
+  </div>
+
+</div>
+
+<footer>
+  Made with ❤️ using JavaScript + MediaPipe
+</footer>
+
+<script type="module">
+
+import {
+  HandLandmarker,
+  FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+const video = document.getElementById("video");
+const tracking = document.getElementById("tracking");
+const tctx = tracking.getContext("2d");
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const status = document.getElementById("cameraStatus");
+const modeLabel = document.getElementById("currentMode");
+
+const W = canvas.width;
+const H = canvas.height;
+
+tracking.width = W;
+tracking.height = H;
+
+let tracker;
+let currentMode = "draw";
+let brushColor = "#ff4fa3";
+let brushSize = 7;
+let previousPoint = null;
+let hue = 0;
+let lastShape = 0;
+let lastClear = 0;
+let lastVideoTime = -1;
+let cameraStarted = false;
+
+function setMode(mode) {
+  currentMode = mode;
+  previousPoint = null;
+  modeLabel.textContent = "Mode: " + mode;
+
+  document.querySelectorAll("[data-mode]").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.mode === mode
+    );
+  });
+}
+
+document.querySelectorAll("[data-mode]").forEach(button => {
+  button.addEventListener("click", () => {
+    setMode(button.dataset.mode);
+  });
+});
+
+document.getElementById("color").addEventListener("input", e => {
+  brushColor = e.target.value;
+});
+
+document.getElementById("size").addEventListener("input", e => {
+  brushSize = Number(e.target.value);
+  document.getElementById("sizeValue").textContent =
+    brushSize + " px";
+});
+
+document.getElementById("clear").onclick = () => {
+  ctx.clearRect(0, 0, W, H);
+  previousPoint = null;
+};
+
+document.getElementById("save").onclick = () => {
+  const link = document.createElement("a");
+  link.download = "AirCanvas-Art.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
+
+function line(x1, y1, x2, y2, color) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = brushSize;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.shadowBlur = currentMode === "rainbow" ? 14 : 4;
+  ctx.shadowColor = color;
+
+  ctx.globalCompositeOperation =
+    currentMode === "erase"
+      ? "destination-out"
+      : "source-over";
+
+  ctx.stroke();
+
+  ctx.globalCompositeOperation = "source-over";
+  ctx.shadowBlur = 0;
+}
+
+function heart(x, y) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, 25);
+  ctx.bezierCurveTo(-60, -10, -40, -55, 0, -20);
+  ctx.bezierCurveTo(40, -55, 60, -10, 0, 25);
+  ctx.fillStyle = "#ff4fa3";
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = "#ff4fa3";
+  ctx.fill();
+  ctx.restore();
+}
+
+function star(x, y) {
+  ctx.beginPath();
+
+  for (let i = 0; i < 10; i++) {
+    const angle = -Math.PI / 2 + i * Math.PI / 5;
+    const radius = i % 2 === 0 ? 28 : 12;
+
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+
+  ctx.closePath();
+  ctx.fillStyle = "#ffd166";
+  ctx.fill();
+}
+
+function circle(x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 27, 0, Math.PI * 2);
+  ctx.strokeStyle = brushColor;
+  ctx.lineWidth = brushSize;
+  ctx.stroke();
+}
+
+function placeShape(x, y, now) {
+  if (now - lastShape < 700) return;
+
+  if (currentMode === "heart") heart(x, y);
+  if (currentMode === "star") star(x, y);
+  if (currentMode === "circle") circle(x, y);
+
+  lastShape = now;
+}
+
+function isFingerUp(hand, tip, joint) {
+  return hand[tip].y < hand[joint].y;
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+async function startCamera() {
+  const button = document.getElementById("start");
+
+  button.disabled = true;
+  status.textContent = "Loading AI hand tracking...";
+
+  try {
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+
+    tracker = await HandLandmarker.createFromOptions(
+      vision,
+      {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+          delegate: "CPU"
+        },
+        runningMode: "VIDEO",
+        numHands: 1
+      }
+    );
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "user",
+        width: 640,
+        height: 480
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+
+    await new Promise(resolve => {
+      video.onloadedmetadata = resolve;
+    });
+
+    await video.play();
+
+    cameraStarted = true;
+    button.textContent = "Camera Started ✓";
+    status.textContent = "Show your hand to begin! ✋";
+
+    requestAnimationFrame(detect);
+
+  } catch (error) {
+    console.error(error);
+    status.textContent =
+      "Unable to start. Check camera permission and internet.";
+    button.disabled = false;
+  }
+}
+
+function detect() {
+  if (!cameraStarted) return;
+
+  const now = performance.now();
+
+  if (video.currentTime !== lastVideoTime) {
+    lastVideoTime = video.currentTime;
+
+    const result = tracker.detectForVideo(video, now);
+
+    tctx.clearRect(0, 0, W, H);
+
+    if (result.landmarks.length > 0) {
+      const hand = result.landmarks[0];
+
+      const index = hand[8];
+      const thumb = hand[4];
+
+      const x = (1 - index.x) * W;
+      const y = index.y * H;
+
+      const indexUp = isFingerUp(hand, 8, 6);
+      const middleUp = isFingerUp(hand, 12, 10);
+      const ringUp = isFingerUp(hand, 16, 14);
+      const pinkyUp = isFingerUp(hand, 20, 18);
+
+      const fist =
+        !indexUp && !middleUp && !ringUp && !pinkyUp;
+
+      const openPalm =
+        indexUp && middleUp && ringUp && pinkyUp;
+
+      const pinch = distance(index, thumb) < 0.055;
+
+      if (
+        ["heart", "star", "circle"].includes(currentMode)
+      ) {
+        previousPoint = null;
+
+        if (pinch) {
+          placeShape(x, y, now);
+          status.textContent = "Shape created! ✨";
+        } else {
+          status.textContent = "Pinch fingers to place a shape";
+        }
+      }
+
+      else if (openPalm) {
+        previousPoint = null;
+        status.textContent = "Drawing paused ✋";
+      }
+
+      else if (fist) {
+        previousPoint = null;
+
+        if (now - lastClear > 2000) {
+          ctx.clearRect(0, 0, W, H);
+          lastClear = now;
+          status.textContent = "Canvas cleared!";
+        }
+      }
+
+      else if (indexUp && !middleUp) {
+        const point = { x, y };
+
+        let stroke = brushColor;
+
+        if (currentMode === "rainbow") {
+          stroke = `hsl(${hue},100%,65%)`;
+          hue = (hue + 3) % 360;
+        }
+
+        if (previousPoint) {
+          line(
+            previousPoint.x,
+            previousPoint.y,
+            point.x,
+            point.y,
+            stroke
+          );
+        }
+
+        previousPoint = point;
+        status.textContent = "Drawing magic! 🌈";
+      }
+
+      else {
+        previousPoint = null;
+        status.textContent = "Raise only your index finger";
+      }
+
+      tctx.beginPath();
+      tctx.arc(x, y, 10, 0, Math.PI * 2);
+      tctx.fillStyle = "#ff79bd";
+      tctx.shadowBlur = 15;
+      tctx.shadowColor = "#ff79bd";
+      tctx.fill();
+      tctx.shadowBlur = 0;
+
+    } else {
+      previousPoint = null;
+      status.textContent = "Hand not detected";
+    }
+  }
+
+  requestAnimationFrame(detect);
+}
+
+document.getElementById("start").onclick = startCamera;
+
+</script>
+
+</body>
+</html>
+
